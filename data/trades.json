@@ -1,0 +1,30 @@
+[
+    {
+        "timestamp": "2025-09-28T05:08:24.451008",
+        "symbol": "ETHUSDT",
+        "side": "BUY",
+        "quantity": 1.0,
+        "price": 4004.22
+    },
+    {
+        "timestamp": "2025-09-28T05:08:41.563133",
+        "symbol": "BTCUSDT",
+        "side": "BUY",
+        "quantity": 0.5,
+        "price": 109452.57
+    },
+    {
+        "timestamp": "2025-09-28T05:08:54.887487",
+        "symbol": "SOLUSDT",
+        "side": "BUY",
+        "quantity": 1.0,
+        "price": 201.81
+    },
+    {
+        "timestamp": "2025-09-28T05:09:09.168482",
+        "symbol": "BTCUSDT",
+        "side": "BUY",
+        "quantity": 0.5,
+        "price": 109418.57
+    }
+]

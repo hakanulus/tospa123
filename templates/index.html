@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tospa Bot Kontrol Paneli</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background-color: #111827; color: #d1d5db; font-family: 'Inter', sans-serif; }
+        .card { background-color: #1f2937; border: 1px solid #374151; }
+        .tab { cursor: pointer; padding: 0.75rem 1.5rem; border-bottom: 2px solid transparent; }
+        .tab.active { color: #3b82f6; border-color: #3b82f6; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .input-text, .select-input { background-color: #374151; border: 1px solid #4b5563; }
+        .btn { transition: all 0.2s ease-in-out; }
+        .btn-primary { background-color: #2563eb; }
+        .btn-primary:hover { background-color: #1d4ed8; }
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0, 0, 0, 0.75);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 50; opacity: 0; visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .modal-overlay.active { opacity: 1; visibility: visible; }
+        .modal-content {
+            background-color: #1f2937;
+            transform: scale(0.95);
+            transition: transform 0.3s ease;
+        }
+        .modal-overlay.active .modal-content { transform: scale(1); }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto">
+        <header class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-white">🐢 Tospa Bot Kontrol Paneli</h1>
+            <div id="test-mode-indicator" class="text-sm font-semibold px-3 py-1 rounded-full"></div>
+        </header>
+
+        <div class="mb-6 border-b border-gray-700">
+            <nav class="flex space-x-4 flex-wrap" aria-label="Tabs">
+                <button class="tab active" onclick="changeTab('dashboard')">Kontrol Paneli</button>
+                <button class="tab" onclick="changeTab('manual')">Manuel İşlemler</button>
+                <button class="tab" onclick="changeTab('strategy')">Strateji Ayarları</button>
+                <button class="tab" onclick="changeTab('api')">API & Mod</button>
+            </nav>
+        </div>
+
+        <div>
+            <!-- Kontrol Paneli -->
+            <div id="dashboard-content" class="tab-content active">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <div class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="card p-6 rounded-lg shadow-lg">
+                                <h2 class="text-xl font-bold text-white mb-4">Otopilot Kontrol</h2>
+                                <div class="flex space-x-4">
+                                    <button id="startButton" class="btn w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">BAŞLAT</button>
+                                    <button id="stopButton" class="btn w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg">DURDUR</button>
+                                </div>
+                            </div>
+                            <div class="card p-6 rounded-lg shadow-lg">
+                                <h2 class="text-xl font-bold text-white mb-4">Genel Durum</h2>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-gray-400">Bot Durumu:</span>
+                                    <span id="bot-status" class="font-bold text-lg">Yükleniyor...</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card p-6 rounded-lg shadow-lg">
+                            <h2 class="text-xl font-bold text-white mb-4">Performans Raporu</h2>
+                            <div id="performance-summary" class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center"></div>
+                        </div>
+                        <div class="card p-6 rounded-lg shadow-lg">
+                            <h2 class="text-xl font-bold text-white mb-4">Parite Yönetimi</h2>
+                            <form id="add-pair-form" class="flex space-x-2 mb-4">
+                                <input type="text" id="new-pair-input" placeholder="Örn: SOLUSDT" class="input-text w-full rounded-md px-3 py-2 text-white">
+                                <button type="submit" class="btn btn-primary text-white font-bold py-2 px-4 rounded-lg">Ekle</button>
+                            </form>
+                            <div id="pairs-list" class="space-y-2"></div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="card p-6 rounded-lg shadow-lg">
+                                <h2 class="text-xl font-bold text-white mb-4">Cüzdan Bakiyeleri</h2>
+                                <div id="balances-list" class="space-y-3"></div>
+                            </div>
+                            <div class="card p-6 rounded-lg shadow-lg">
+                                <h2 class="text-xl font-bold text-white mb-4">Anlık Fiyatlar</h2>
+                                <div id="prices-list" class="space-y-3"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card p-6 rounded-lg shadow-lg">
+                        <h2 class="text-xl font-bold text-white mb-4">Bakiye Zaman Çizelgesi (USDT)</h2>
+                        <div class="h-[70vh]"><canvas id="equity-chart"></canvas></div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="card p-6 rounded-lg shadow-lg">
+                        <h2 class="text-xl font-bold text-white mb-4">Canlı Aktivite Logları</h2>
+                        <div id="log-panel" class="h-96 bg-gray-900 p-4 rounded-md overflow-y-auto text-xs font-mono"></div>
+                    </div>
+                    <div class="card p-6 rounded-lg shadow-lg">
+                        <h2 class="text-xl font-bold text-white mb-4">İşlem Geçmişi</h2>
+                        <div id="trades-list" class="h-96 space-y-2 overflow-y-auto"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Manuel İşlemler -->
+            <div id="manual-content" class="tab-content">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2 card p-6 rounded-lg shadow-lg">
+                        <h2 class="text-xl font-bold text-white mb-4">Açık Pozisyonlar</h2>
+                        <div class="h-96 overflow-y-auto">
+                            <table class="w-full text-sm text-left">
+                                <thead class="text-xs text-gray-400 uppercase">
+                                    <tr>
+                                        <th scope="col" class="px-4 py-2">Parite</th>
+                                        <th scope="col" class="px-4 py-2">Miktar</th>
+                                        <th scope="col" class="px-4 py-2">Ort. Giriş</th>
+                                        <th scope="col" class="px-4 py-2">Kâr Al (TP)</th>
+                                        <th scope="col" class="px-4 py-2">Zarar Durdur (SL)</th>
+                                        <th scope="col" class="px-4 py-2"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="open-positions-list"></tbody>
+                            </table>
+                        </div>
+                        <button id="closeAllPositionsBtn" class="btn bg-red-600 hover:bg-red-700 text-white w-full mt-4 py-2 rounded-lg">Tüm Pozisyonları Kapat</button>
+                    </div>
+                    <div class="card p-6 rounded-lg shadow-lg">
+                        <h2 class="text-xl font-bold text-white mb-4">Manuel Emir Gönder</h2>
+                        <form id="manual-trade-form" class="space-y-4">
+                            <div>
+                                <label for="manual-symbol" class="block text-sm font-medium text-gray-300 mb-1">Parite</label>
+                                <select id="manual-symbol" class="select-input w-full rounded-md p-2"></select>
+                            </div>
+                            <div>
+                                <label for="manual-quantity" class="block text-sm font-medium text-gray-300 mb-1">Miktar</label>
+                                <input type="number" id="manual-quantity" step="any" placeholder="Örn: 0.01" class="input-text w-full rounded-md p-2">
+                            </div>
+                            <div>
+                                <label for="manual-tp" class="block text-sm font-medium text-gray-300 mb-1">Kâr Al Fiyatı (TP) (İsteğe Bağlı)</label>
+                                <input type="number" id="manual-tp" step="any" placeholder="Örn: 70000" class="input-text w-full rounded-md p-2">
+                            </div>
+                            <div>
+                                <label for="manual-sl" class="block text-sm font-medium text-gray-300 mb-1">Zarar Durdur Fiyatı (SL) (İsteğe Bağlı)</label>
+                                <input type="number" id="manual-sl" step="any" placeholder="Örn: 60000" class="input-text w-full rounded-md p-2">
+                            </div>
+                            <div class="flex space-x-4">
+                                <button type="button" id="manualBuyBtn" class="btn w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg">AL</button>
+                                <button type="button" id="manualSellBtn" class="btn w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-lg">SAT</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Strateji Ayarları -->
+            <div id="strategy-content" class="tab-content">
+                 <div class="card p-8 rounded-lg shadow-lg max-w-lg mx-auto">
+                    <h2 class="text-2xl font-bold text-white mb-6">Strateji Ayarları</h2>
+                    <form id="strategy-form" class="space-y-6">
+                        <div>
+                            <label for="fast-ema" class="block text-sm font-medium text-gray-300 mb-1">Hızlı EMA Periyodu</label>
+                            <input type="number" id="fast-ema" class="input-text w-full rounded-md p-2">
+                        </div>
+                        <div>
+                            <label for="slow-ema" class="block text-sm font-medium text-gray-300 mb-1">Yavaş EMA Periyodu</label>
+                            <input type="number" id="slow-ema" class="input-text w-full rounded-md p-2">
+                        </div>
+                        <div>
+                            <label for="trade-percent" class="block text-sm font-medium text-gray-300 mb-1">İşlem Başına Bakiye Yüzdesi (%)</label>
+                            <input type="number" id="trade-percent" step="0.1" class="input-text w-full rounded-md p-2">
+                        </div>
+                        <div>
+                            <label for="default-tp" class="block text-sm font-medium text-gray-300 mb-1">Varsayılan Kâr Al (%)</label>
+                            <input type="number" id="default-tp" step="0.1" class="input-text w-full rounded-md p-2">
+                        </div>
+                        <div>
+                            <label for="default-sl" class="block text-sm font-medium text-gray-300 mb-1">Varsayılan Zarar Durdur (%)</label>
+                            <input type="number" id="default-sl" step="0.1" class="input-text w-full rounded-md p-2">
+                        </div>
+                         <div>
+                            <label for="fee-percent" class="block text-sm font-medium text-gray-300 mb-1">Komisyon Oranı (%)</label>
+                            <input type="number" id="fee-percent" step="0.001" class="input-text w-full rounded-md p-2">
+                        </div>
+                        <button type="submit" class="btn btn-primary w-full text-white font-bold py-3 px-4 rounded-lg">Ayarları Kaydet</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- API & Mod -->
+            <div id="api-content" class="tab-content">
+                 <div class="card p-8 rounded-lg shadow-lg max-w-4xl mx-auto">
+                    <h2 class="text-2xl font-bold text-white mb-6">API Anahtarları & Ticaret Modu</h2>
+                     <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div>
+                            <form id="api-form" class="space-y-6">
+                                <div>
+                                    <h3 class="text-xl font-bold text-white">Canlı Mod Anahtarları</h3>
+                                    <div class="space-y-4 mt-4">
+                                        <div>
+                                            <label for="live-api-key" class="block text-sm font-medium text-gray-300 mb-1">Canlı API Key</label>
+                                            <input type="password" id="live-api-key" class="input-text w-full rounded-md p-2">
+                                        </div>
+                                        <div>
+                                            <label for="live-api-secret" class="block text-sm font-medium text-gray-300 mb-1">Canlı API Secret</label>
+                                            <input type="password" id="live-api-secret" class="input-text w-full rounded-md p-2">
+                                        </div>
+                                    </div>
+                                </div>
+                                 <div>
+                                    <h3 class="text-xl font-bold text-white mt-6">Sanal Mod Anahtarları</h3>
+                                     <div class="space-y-4 mt-4">
+                                        <div>
+                                            <label for="test-api-key" class="block text-sm font-medium text-gray-300 mb-1">Testnet API Key</label>
+                                            <input type="password" id="test-api-key" class="input-text w-full rounded-md p-2">
+                                        </div>
+                                        <div>
+                                            <label for="test-api-secret" class="block text-sm font-medium text-gray-300 mb-1">Testnet API Secret</label>
+                                            <input type="password" id="test-api-secret" class="input-text w-full rounded-md p-2">
+                                        </div>
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-primary w-full text-white font-bold py-3 px-4 rounded-lg mt-6">Tüm Anahtarları Kaydet</button>
+                            </form>
+                        </div>
+                         <div class="space-y-6">
+                             <h3 class="text-xl font-bold text-white">Ticaret Modu</h3>
+                             <div id="trade-mode-panel" class="p-6 rounded-lg text-center border-2 border-gray-600"></div>
+                             <div class="bg-blue-900 border-l-4 border-blue-500 text-blue-200 p-4 rounded" role="alert">
+                                 <p class="font-bold">Önemli Not</p>
+                                 <p>Mod değiştirdikten veya yeni API anahtarı kaydettikten sonra, değişikliklerin etkili olması için sunucuyu terminalden manuel olarak yeniden başlatmanız gerekir.</p>
+                             </div>
+                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="confirmation-modal" class="modal-overlay">
+        <div class="modal-content rounded-lg shadow-xl p-8 max-w-sm w-full">
+            <h3 id="modal-title" class="text-2xl font-bold text-white mb-4"></h3>
+            <p id="modal-text" class="text-gray-300 mb-6"></p>
+            <div class="flex justify-end space-x-4">
+                <button id="modal-cancel" class="btn bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg">İptal</button>
+                <button id="modal-confirm" class="btn font-bold py-2 px-4 rounded-lg">Onayla</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let equityChart;
+        let currentModalAction = null;
+
+        const elements = {
+            botStatus: document.getElementById('bot-status'),
+            testModeIndicator: document.getElementById('test-mode-indicator'),
+            balancesList: document.getElementById('balances-list'),
+            pricesList: document.getElementById('prices-list'),
+            pairsList: document.getElementById('pairs-list'),
+            logPanel: document.getElementById('log-panel'),
+            tradesList: document.getElementById('trades-list'),
+            performanceSummary: document.getElementById('performance-summary'),
+            addPairForm: document.getElementById('add-pair-form'),
+            newPairInput: document.getElementById('new-pair-input'),
+            strategyForm: document.getElementById('strategy-form'),
+            apiForm: document.getElementById('api-form'),
+            fastEmaInput: document.getElementById('fast-ema'),
+            slowEmaInput: document.getElementById('slow-ema'),
+            tradePercentInput: document.getElementById('trade-percent'),
+            defaultTpInput: document.getElementById('default-tp'),
+            defaultSlInput: document.getElementById('default-sl'),
+            feePercentInput: document.getElementById('fee-percent'),
+            liveApiKeyInput: document.getElementById('live-api-key'),
+            liveApiSecretInput: document.getElementById('live-api-secret'),
+            testApiKeyInput: document.getElementById('test-api-key'),
+            testApiSecretInput: document.getElementById('test-api-secret'),
+            tradeModePanel: document.getElementById('trade-mode-panel'),
+            modal: document.getElementById('confirmation-modal'),
+            modalTitle: document.getElementById('modal-title'),
+            modalText: document.getElementById('modal-text'),
+            modalConfirm: document.getElementById('modal-confirm'),
+            modalCancel: document.getElementById('modal-cancel'),
+            openPositionsList: document.getElementById('open-positions-list'),
+            manualTradeForm: document.getElementById('manual-trade-form'),
+            manualSymbolSelect: document.getElementById('manual-symbol'),
+            manualQuantityInput: document.getElementById('manual-quantity'),
+            manualTpInput: document.getElementById('manual-tp'),
+            manualSlInput: document.getElementById('manual-sl'),
+            manualBuyBtn: document.getElementById('manualBuyBtn'),
+            manualSellBtn: document.getElementById('manualSellBtn'),
+            closeAllPositionsBtn: document.getElementById('closeAllPositionsBtn'),
+        };
+
+        function showModal({ title, text, confirmText = 'Onayla', confirmClass = 'bg-blue-600 hover:bg-blue-700', onConfirm }) {
+            elements.modalTitle.textContent = title;
+            elements.modalText.textContent = text;
+            elements.modalConfirm.textContent = confirmText;
+            elements.modalConfirm.className = `btn font-bold py-2 px-4 rounded-lg ${confirmClass}`;
+            elements.modal.classList.add('active');
+            currentModalAction = onConfirm;
+        }
+
+        function hideModal() {
+            elements.modal.classList.remove('active');
+            currentModalAction = null;
+        }
+
+        elements.modalConfirm.addEventListener('click', () => {
+            if (currentModalAction) currentModalAction();
+            hideModal();
+        });
+        elements.modalCancel.addEventListener('click', hideModal);
+
+        function changeTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.getElementById(`${tabName}-content`).classList.add('active');
+            event.currentTarget.classList.add('active');
+        }
+
+        document.getElementById('startButton').addEventListener('click', () => sendControlRequest('/api/start'));
+        document.getElementById('stopButton').addEventListener('click', () => sendControlRequest('/api/stop'));
+
+
+        elements.addPairForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const pair = elements.newPairInput.value.trim().toUpperCase();
+            if (!pair) return;
+            const response = await fetch('/api/add_pair', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pair })
+            });
+            const result = await response.json();
+            if(result.status === 'error') {
+                 showModal({ title: 'Hata', text: result.message, confirmText: 'Tamam', confirmClass: 'bg-yellow-600 hover:bg-yellow-700', onConfirm: () => {} });
+            }
+            elements.newPairInput.value = '';
+            updateAllData();
+        });
+
+        elements.strategyForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            showModal({
+                title: 'Ayarları Onayla',
+                text: 'Strateji ayarlarını kaydetmek istediğinizden emin misiniz?',
+                onConfirm: async () => {
+                    const settings = {
+                        fast_ema: elements.fastEmaInput.value,
+                        slow_ema: elements.slowEmaInput.value,
+                        trade_percent: elements.tradePercentInput.value,
+                        default_tp: elements.defaultTpInput.value,
+                        default_sl: elements.defaultSlInput.value,
+                        fee_percent: elements.feePercentInput.value,
+                    };
+                    const response = await fetch('/api/settings/strategy', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(settings)
+                    });
+                    const result = await response.json();
+                     showModal({ title: 'Başarılı', text: result.message, confirmText: 'Tamam', onConfirm: () => {} });
+                }
+            });
+        });
+
+        elements.apiForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            showModal({
+                title: 'API Anahtarlarını Onayla',
+                text: 'Tüm API anahtarlarını kaydetmek istediğinizden emin misiniz?',
+                confirmText: 'Kaydet',
+                confirmClass: 'bg-yellow-600 hover:bg-yellow-700',
+                onConfirm: async () => {
+                    const keys = {
+                        live_api_key: elements.liveApiKeyInput.value,
+                        live_api_secret: elements.liveApiSecretInput.value,
+                        test_api_key: elements.testApiKeyInput.value,
+                        test_api_secret: elements.testApiSecretInput.value,
+                    };
+                     const response = await fetch('/api/settings/api_keys', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(keys)
+                    });
+                    const result = await response.json();
+                    showModal({ title: 'Bilgi', text: result.message + " Lütfen sunucuyu yeniden başlatın.", confirmText: 'Tamam', onConfirm: fetchAndPopulateSettings });
+                }
+            });
+        });
+        
+        window.removePair = function(pair) {
+            showModal({
+                title: 'Pariteyi Kaldır',
+                text: `'${pair}' paritesini takip listesinden kaldırmak istediğinizden emin misiniz?`,
+                confirmText: 'Kaldır',
+                confirmClass: 'bg-red-600 hover:bg-red-700',
+                onConfirm: async () => {
+                    await fetch('/api/remove_pair', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ pair: pair })
+                    });
+                    updateAllData();
+                }
+            });
+        }
+        
+        window.toggleTradeMode = function(isTestMode) {
+            const targetMode = isTestMode ? 'CANLI' : 'SANAL';
+            showModal({
+                title: `${targetMode} Moda Geç`,
+                text: `Gerçekten ${targetMode} moda geçmek istediğinizden emin misiniz? ${targetMode === 'CANLI' ? 'Bu modda gerçek para ile işlem yapılacaktır!' : ''}`,
+                confirmText: `${targetMode} Moda Geç`,
+                confirmClass: 'bg-red-600 hover:bg-red-700',
+                onConfirm: async () => {
+                    const dataToSend = { test_mode: !isTestMode };
+                    const response = await fetch('/api/settings/trade_mode', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(dataToSend)
+                    });
+                    const result = await response.json();
+                    showModal({ title: 'Bilgi', text: result.message, confirmText: 'Tamam', onConfirm: () => { if(result.status === 'success') fetchAndPopulateSettings(); } });
+                }
+            });
+        }
+        
+        elements.manualBuyBtn.addEventListener('click', () => executeManualTrade('BUY'));
+        elements.manualSellBtn.addEventListener('click', () => executeManualTrade('SELL'));
+        elements.closeAllPositionsBtn.addEventListener('click', closeAllPositions);
+
+        async function executeManualTrade(side) {
+            const symbol = elements.manualSymbolSelect.value;
+            const quantity = parseFloat(elements.manualQuantityInput.value);
+            const tp_price = parseFloat(elements.manualTpInput.value);
+            const sl_price = parseFloat(elements.manualSlInput.value);
+
+            if (!symbol || !quantity || quantity <= 0) {
+                showModal({ title: 'Hata', text: 'Lütfen geçerli bir parite ve miktar girin.', confirmText: 'Tamam' });
+                return;
+            }
+
+            showModal({
+                title: 'Manuel Emri Onayla',
+                text: `${quantity} ${symbol} için ${side} emri vermek istediğinizden emin misiniz?`,
+                confirmText: side,
+                confirmClass: side === 'BUY' ? 'bg-green-600' : 'bg-red-600',
+                onConfirm: async () => {
+                    const response = await fetch('/api/manual_trade', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ symbol, quantity, side, tp_price, sl_price })
+                    });
+                    const result = await response.json();
+                    showModal({ title: 'Bilgi', text: result.message, confirmText: 'Tamam' });
+                    elements.manualQuantityInput.value = '';
+                    elements.manualTpInput.value = '';
+                    elements.manualSlInput.value = '';
+                    updateAllData();
+                }
+            });
+        }
+
+        window.updateTpSl = async function(symbol) {
+            const newTp = document.getElementById(`tp-${symbol}`).value;
+            const newSl = document.getElementById(`sl-${symbol}`).value;
+            
+            showModal({
+                title: 'TP/SL Güncelle',
+                text: `${symbol} için yeni TP/SL değerlerini kaydetmek istediğinizden emin misiniz?`,
+                onConfirm: async () => {
+                    const response = await fetch('/api/positions/update', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ symbol, tp_price: newTp, sl_price: newSl })
+                    });
+                    const result = await response.json();
+                    showModal({ title: 'Bilgi', text: result.message, confirmText: 'Tamam' });
+                    updateAllData();
+                }
+            });
+        }
+
+        function closeAllPositions() {
+            showModal({
+                title: 'Tüm Pozisyonları Kapat',
+                text: 'Tüm açık pozisyonları piyasa fiyatından satmak istediğinizden emin misiniz? Bu işlem geri alınamaz.',
+                confirmText: 'Hepsini Sat',
+                confirmClass: 'bg-red-600',
+                onConfirm: async () => {
+                    const response = await fetch('/api/close_all_positions', { method: 'POST' });
+                    const result = await response.json();
+                    showModal({ title: 'Bilgi', text: result.message, confirmText: 'Tamam' });
+                    updateAllData();
+                }
+            });
+        }
+        
+        async function sendControlRequest(url) {
+            await fetch(url, { method: 'POST' });
+            setTimeout(updateAllData, 1000);
+        }
+        
+        async function fetchAndPopulateSettings() {
+             try {
+                const response = await fetch('/api/settings');
+                if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); }
+                const data = await response.json();
+                
+                if(elements.fastEmaInput) elements.fastEmaInput.value = data.FAST_EMA_PERIOD;
+                if(elements.slowEmaInput) elements.slowEmaInput.value = data.SLOW_EMA_PERIOD;
+                if(elements.tradePercentInput) elements.tradePercentInput.value = data.TRADE_AMOUNT_PERCENT;
+                if(elements.defaultTpInput) elements.defaultTpInput.value = data.DEFAULT_TP_PERCENT;
+                if(elements.defaultSlInput) elements.defaultSlInput.value = data.DEFAULT_SL_PERCENT;
+                if(elements.feePercentInput) elements.feePercentInput.value = data.BINANCE_FEE_PERCENT;
+
+                if(elements.liveApiKeyInput) elements.liveApiKeyInput.value = data.LIVE_BINANCE_API_KEY ? '********' : '';
+                if(elements.liveApiSecretInput) elements.liveApiSecretInput.value = data.LIVE_BINANCE_API_SECRET ? '********' : '';
+                if(elements.testApiKeyInput) elements.testApiKeyInput.value = data.TEST_BINANCE_API_KEY ? '********' : '';
+                if(elements.testApiSecretInput) elements.testApiSecretInput.value = data.TEST_BINANCE_API_SECRET ? '********' : '';
+                
+                if(elements.testModeIndicator) {
+                    elements.testModeIndicator.textContent = data.IS_TEST_MODE ? "Sanal Mod" : "Canlı Mod";
+                    elements.testModeIndicator.className = `text-sm font-semibold px-3 py-1 rounded-full ${data.IS_TEST_MODE ? 'bg-blue-500' : 'bg-yellow-500'} text-white`;
+                }
+
+                if (elements.tradeModePanel) {
+                    if (data.IS_TEST_MODE) {
+                        elements.tradeModePanel.innerHTML = `
+                            <p class="text-blue-300 font-bold text-lg mb-2">SANAL MOD AKTİF</p>
+                            <p class="text-sm text-gray-400 mb-4">Bot, sanal para ile işlem yapmaktadır.</p>
+                            <button onclick="toggleTradeMode(true)" class="btn w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg">CANLI MODA GEÇ</button>
+                        `;
+                    } else {
+                        elements.tradeModePanel.innerHTML = `
+                            <p class="text-yellow-300 font-bold text-lg mb-2">CANLI MOD AKTİF</p>
+                            <p class="text-sm text-gray-400 mb-4">DİKKAT! Bot, gerçek para ile işlem yapmaktadır.</p>
+                            <button onclick="toggleTradeMode(false)" class="btn w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg">SANAL MODA GEÇ</button>
+                        `;
+                    }
+                }
+            } catch (error) { console.error('Ayarlar yüklenemedi:', error); }
+        }
+
+        async function updateStatus() {
+            try {
+                const response = await fetch('/api/status');
+                if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); }
+                const data = await response.json();
+                if(elements.botStatus) elements.botStatus.textContent = data.bot_status;
+                if(elements.botStatus) elements.botStatus.className = data.bot_status === 'Çalışıyor' ? 'font-bold text-lg text-green-400' : 'font-bold text-lg text-red-400';
+                if(elements.balancesList) elements.balancesList.innerHTML = Object.entries(data.balances).map(([asset, amount]) => `<p class="flex justify-between"><span>${asset}:</span> <span class="font-mono">${parseFloat(amount).toFixed(4)}</span></p>`).join('');
+                if(elements.pricesList) elements.pricesList.innerHTML = Object.entries(data.prices).map(([pair, price]) => `<p class="flex justify-between"><span>${pair}:</span> <span class="font-mono">${price}</span></p>`).join('');
+                if(elements.pairsList) elements.pairsList.innerHTML = data.target_pairs.map(pair => `<div class="flex items-center justify-between bg-gray-700 p-2 rounded-md"><span>${pair}</span><button onclick="removePair('${pair}')" class="btn bg-gray-600 hover:bg-red-600 text-xs px-2 py-1 rounded">Kaldır</button></div>`).join('');
+                
+                if(elements.manualSymbolSelect) {
+                    const selectedValue = elements.manualSymbolSelect.value;
+                    elements.manualSymbolSelect.innerHTML = data.target_pairs.map(pair => `<option value="${pair}">${pair}</option>`).join('');
+                    if (selectedValue) elements.manualSymbolSelect.value = selectedValue;
+                }
+
+            } catch (error) { console.error('Durum güncellenemedi:', error); }
+        }
+        async function updateTrades() {
+             try {
+                const response = await fetch('/api/trades');
+                if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); }
+                const trades = await response.json();
+                if (elements.tradesList) {
+                    if (trades.length > 0) {
+                        elements.tradesList.innerHTML = trades.map(trade => {
+                            const sideClass = trade.side === 'BUY' ? 'text-green-400' : 'text-red-400';
+                            const time = new Date(trade.timestamp).toLocaleTimeString();
+                            return `<div class="grid grid-cols-4 gap-2 text-sm items-center"><span class="${sideClass} font-bold">${trade.side}</span><span>${trade.symbol}</span><span>${trade.quantity} @ ${trade.price}</span><span class="text-right text-gray-400">${time}</span></div>`;
+                        }).join('');
+                    } else {
+                        elements.tradesList.innerHTML = `<p class="text-gray-500 text-center mt-4">Henüz işlem yapılmadı.</p>`;
+                    }
+                }
+            } catch (error) { console.error('İşlemler yüklenemedi:', error); }
+        }
+        async function updatePerformance() {
+             try {
+                const response = await fetch('/api/performance');
+                if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); }
+                const perf = await response.json();
+                
+                if(elements.performanceSummary) {
+                    elements.performanceSummary.innerHTML = `
+                        <div><p class="text-gray-400 text-sm">Toplam K/Z</p><p class="text-2xl font-bold ${perf.summary.total_pnl >= 0 ? 'text-green-400' : 'text-red-400'}">${perf.summary.total_pnl || 0} <span class="text-lg">USDT</span></p></div>
+                        <div><p class="text-gray-400 text-sm">Başarı Oranı</p><p class="text-2xl font-bold">${perf.summary.win_rate || 0}%</p></div>
+                        <div><p class="text-gray-400 text-sm">Kazanan</p><p class="text-2xl font-bold text-green-400">${perf.summary.wins || 0}</p></div>
+                        <div><p class="text-gray-400 text-sm">Kaybeden</p><p class="text-2xl font-bold text-red-400">${perf.summary.losses || 0}</p></div>
+                    `;
+                }
+
+                if (equityChart) {
+                    equityChart.data.labels = perf.chart_data.labels;
+                    equityChart.data.datasets[0].data = perf.chart_data.data;
+                    equityChart.update();
+                } else if (perf.chart_data.labels && perf.chart_data.labels.length > 0) {
+                    const ctx = document.getElementById('equity-chart').getContext('2d');
+                    if (ctx) {
+                        equityChart = new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: perf.chart_data.labels,
+                                datasets: [{
+                                    label: 'Bakiye (USDT)',
+                                    data: perf.chart_data.data,
+                                    borderColor: '#3b82f6',
+                                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                    borderWidth: 2,
+                                    fill: true,
+                                    tension: 0.1
+                                }]
+                            },
+                            options: {
+                                responsive: true, maintainAspectRatio: false,
+                                scales: { x: { ticks: { color: '#9ca3af' } }, y: { ticks: { color: '#9ca3af' } } },
+                                plugins: { legend: { display: false } }
+                            }
+                        });
+                    }
+                }
+            } catch (error) { console.error('Performans verisi yüklenemedi:', error); }
+        }
+        async function updateOpenPositions() {
+            try {
+                const response = await fetch('/api/positions');
+                if (!response.ok) throw new Error("API error");
+                const positions = await response.json();
+                if (elements.openPositionsList) {
+                    if (Object.keys(positions).length > 0) {
+                        elements.openPositionsList.innerHTML = Object.entries(positions).map(([symbol, p]) => `
+                            <tr class="border-b border-gray-700">
+                                <td class="px-4 py-2 font-bold">${symbol}</td>
+                                <td class="px-4 py-2 font-mono">${p.quantity}</td>
+                                <td class="px-4 py-2 font-mono">${p.entry_price.toFixed(4)}</td>
+                                <td class="px-4 py-2"><input type="number" step="any" id="tp-${symbol}" class="input-text w-24 p-1 rounded" value="${p.tp_price.toFixed(4)}"></td>
+                                <td class="px-4 py-2"><input type="number" step="any" id="sl-${symbol}" class="input-text w-24 p-1 rounded" value="${p.sl_price.toFixed(4)}"></td>
+                                <td class="px-4 py-2 text-right">
+                                    <button onclick="window.updateTpSl('${symbol}')" class="btn bg-green-600 hover:bg-green-700 text-xs px-2 py-1 rounded mr-2">Güncelle</button>
+                                </td>
+                            </tr>
+                        `).join('');
+                    } else {
+                        elements.openPositionsList.innerHTML = '<tr><td colspan="6" class="text-center text-gray-500 py-4">Açık pozisyon bulunmuyor.</td></tr>';
+                    }
+                }
+            } catch (error) { console.error('Açık pozisyonlar yüklenemedi:', error); }
+        }
+
+        function streamLogs() {
+            if(!elements.logPanel) return;
+            elements.logPanel.innerHTML = '';
+            const eventSource = new EventSource('/api/logs');
+            eventSource.onmessage = (event) => {
+                elements.logPanel.innerHTML += `<p>${event.data}</p>`;
+                elements.logPanel.scrollTop = elements.logPanel.scrollHeight;
+            };
+            eventSource.onerror = () => {
+                elements.logPanel.innerHTML += '<p class="text-red-500">Log sunucusu bağlantısı kesildi. Yeniden deneniyor...</p>';
+                setTimeout(streamLogs, 3000);
+            };
+        }
+        function updateAllData() {
+            updateStatus();
+            updateTrades();
+            updatePerformance();
+            updateOpenPositions();
+        }
+
+        window.onload = () => {
+            fetchAndPopulateSettings();
+            updateAllData();
+            setInterval(updateAllData, 10000); // 10 saniyede bir güncelle
+            streamLogs();
+        };
+
+    </script>
+</body>
+</html>
+

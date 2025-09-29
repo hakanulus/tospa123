@@ -1,0 +1,20 @@
+{
+    "ETHUSDT": {
+        "quantity": 1.0,
+        "entry_price": 4004.22,
+        "tp_price": 4052.27,
+        "sl_price": 0.0
+    },
+    "BTCUSDT": {
+        "quantity": 1.0,
+        "entry_price": 109435.57,
+        "tp_price": 115435.57,
+        "sl_price": 0.0
+    },
+    "SOLUSDT": {
+        "quantity": 1.0,
+        "entry_price": 201.81,
+        "tp_price": 210.0,
+        "sl_price": 0.0
+    }
+}

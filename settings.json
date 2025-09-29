@@ -1,0 +1,10 @@
+{
+    "TARGET_PAIRS": [
+        "ETHUSDT",
+        "BTCUSDT",
+        "SOLUSDT"
+    ],
+    "TRADE_AMOUNT_PERCENT": 25.0,
+    "FAST_EMA_PERIOD": 12,
+    "SLOW_EMA_PERIOD": 26
+}

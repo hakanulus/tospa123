@@ -1,0 +1,9 @@
+flask
+python-binance
+python-dotenv
+requests
+pandas
+numpy
+waitress
+pydantic
+pydantic-settings
